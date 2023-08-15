@@ -17,6 +17,7 @@ library(xts)
 library(caret)
 library(forecast) # forecasting time series ARIMA 
 library(prophet) # forecasting time series
+library(highcharter) #Interactive Plot
 
 #------WRANGLING-------
 # import the data
@@ -126,7 +127,8 @@ df_p <- df_p |> filter(date >= '2016-01-01')
 colnames(df_p) <- c('ds', 'y')
 prophet.model <- prophet(df_p)
 
-# Analisis Predictions
+
+#-------Analisis Predictions-------
 start <- as.Date("2008-12-01")
 t <- seq(from = start, length = nrow(lines.total) + n, by = "month")
 predictions <- data.frame(date = t, 
@@ -135,6 +137,14 @@ predictions <- data.frame(date = t,
                      arima.manual = valuesArima1$arima.manual,
                      arima.auto = valuesArima2$arima.auto
                      )
+
+dfReal <- fortify.zoo(lines.total) #convert xts to dataframe
+colnames(dfReal)[1] <- "date"
+predictions <- predictions |> left_join(dfReal, by='date')
+predictions['total'][is.na(predictions['total'])] <- 0
+colnames(predictions)[6] <- "real"
+
+
 
 #____________Compare the Algorithms__________________
 # MEAN ABSOLUTE PERCENTAGE ERROR (MAPE)
@@ -208,3 +218,9 @@ arimaAuto_adj_r2
 arimaAutoAccuracy <- 100 - arimaAuto_MAPE
 arimaAutoAccuracy
 
+
+#Interactive Plot
+highchart()|> 
+  hc_add_series(predictions$linear) |>
+  hc_title(text="<b>Mobile Service SMA</b>")
+hchart(predictions, "line", hcaes(x = date, y = linear))
