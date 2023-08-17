@@ -141,7 +141,7 @@ predictions <- data.frame(date = t,
 dfReal <- fortify.zoo(lines.total) #convert xts to dataframe
 colnames(dfReal)[1] <- "date"
 predictions <- predictions |> left_join(dfReal, by='date')
-predictions['total'][is.na(predictions['total'])] <- 0
+#predictions['total'][is.na(predictions['total'])] <- 0
 colnames(predictions)[6] <- "real"
 
 
@@ -219,8 +219,20 @@ arimaAutoAccuracy <- 100 - arimaAuto_MAPE
 arimaAutoAccuracy
 
 
-#Interactive Plot
+#----------Interactive Plot-------------
 highchart()|> 
   hc_add_series(predictions$linear) |>
   hc_title(text="<b>Mobile Service SMA</b>")
-hchart(predictions, "line", hcaes(x = date, y = linear))
+
+# Reshape Data
+predictions2 <- pivot_longer(predictions, cols=2:6, names_to = 'models', values_to = 'lines')
+hchart(predictions2, "line", hcaes(x = date, y = lines, group = models)) |>
+  hc_title(text="<b>Mobile Service SMA</b>") |>
+  hc_subtitle(text = 'Country: Ecuador') |> 
+  hc_credits(enable = TRUE, text = 'https://github.com/raulavilesrodriguez') |>
+  hc_tooltip(sort = TRUE, table = TRUE) |>
+  hc_caption(text = 'Elaborated: Byron Raúl Avilés Rodríguez') |>
+  hc_add_theme(hc_theme_darkunica())
+
+
+
