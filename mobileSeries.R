@@ -126,7 +126,12 @@ df_p <- tibble(date = lines_sma$`MES/AÑO `, lines = lines_sma$`TOTAL NACIONAL D
 df_p <- df_p |> filter(date >= '2016-01-01')
 colnames(df_p) <- c('ds', 'y')
 prophet.model <- prophet(df_p)
-
+future <- make_future_dataframe(prophet.model, periods = 12, freq = 'month')
+fcst <- predict(prophet.model, future)
+plot(prophet.model, fcst)
+valuesProphet <- rbind(data.frame(prop = historic[['total']]),
+                       data.frame(prop = fcst$yhat)
+                       )
 
 #-------Analisis Predictions-------
 start <- as.Date("2008-12-01")
@@ -135,14 +140,16 @@ predictions <- data.frame(date = t,
                      linear = valuesLinear$linear,
                      cuadratic = valuesCuadratic$cuadratic,
                      arima.manual = valuesArima1$arima.manual,
-                     arima.auto = valuesArima2$arima.auto
+                     arima.auto = valuesArima2$arima.auto,
+                     prophet = valuesProphet$prop
                      )
 
+# real data
 dfReal <- fortify.zoo(lines.total) #convert xts to dataframe
 colnames(dfReal)[1] <- "date"
 predictions <- predictions |> left_join(dfReal, by='date')
 #predictions['total'][is.na(predictions['total'])] <- 0
-colnames(predictions)[6] <- "real"
+colnames(predictions)[7] <- "real"
 
 
 
@@ -167,6 +174,7 @@ ADJ_RSQUARED <- function(y_actual, y_predict){
 }
 
 test <- data.frame(y = c(lines.total.ts))
+
 # Linear Model
 y_hat_linear <- data.frame((y = lines.total_fit1['fitted.values']))
 names(y_hat_linear)[1] <- 'y'
@@ -218,6 +226,19 @@ arimaAuto_adj_r2
 arimaAutoAccuracy <- 100 - arimaAuto_MAPE
 arimaAutoAccuracy
 
+# Model Prophet
+fcst.filtered <- fcst[1:nrow(test),]
+
+prophet_MAPE <- MAPE(test$y, fcst.filtered$yhat)
+prophet_MAPE
+prophet_r2 <- RSQUARED(test$y, fcst.filtered$yhat)
+prophet_r2
+prophet_adj_r2 <- ADJ_RSQUARED(test$y, fcst.filtered$yhat)
+prophet_adj_r2
+prophettoAccuracy <- 100 - prophet_MAPE
+prophettoAccuracy
+
+
 
 #----------Interactive Plot-------------
 highchart()|> 
@@ -225,7 +246,7 @@ highchart()|>
   hc_title(text="<b>Mobile Service SMA</b>")
 
 # Reshape Data
-predictions2 <- pivot_longer(predictions, cols=2:6, names_to = 'models', values_to = 'lines')
+predictions2 <- pivot_longer(predictions, cols=2:7, names_to = 'models', values_to = 'lines')
 hchart(predictions2, "line", hcaes(x = date, y = lines, group = models)) |>
   hc_title(text="<b>Mobile Service SMA</b>") |>
   hc_subtitle(text = 'Country: Ecuador') |> 
